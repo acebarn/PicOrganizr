@@ -11,13 +11,4 @@ import de.acebarn.photoOrganizr.io.IOController;
  */
 public class AppTest 
 {
-	@Test
-	public void testListAllImageFiles() throws Exception {
-		IOController controller = new IOController();
-		
-		
-		for (File f : controller.readDirectory()) {
-			System.out.println(f.getAbsolutePath());
-		}
-	}
 }
