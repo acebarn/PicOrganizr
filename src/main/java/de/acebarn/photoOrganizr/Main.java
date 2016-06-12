@@ -17,16 +17,12 @@ public class Main {
 	private static final Logger logger = LoggerFactory.getLogger(Main.class);
 
 	public static void main(String[] args) {
-		// Properties lesen
-		// Quellordner wählen
-		// Fotos kopieren
-		//
 
-		String sourcePath = "/home/alessio/Pictures/2015/01";
-		String targetPath = "/home/alessio/Pictures/Collection";
+		File sourcePath = new File("/home/alessio/Pictures/2015/01");
+		File targetPath = new File("/home/alessio/Pictures/Collection");
 		String prefix = "ACB";
 
-		String supportedFileTypes = "jpg JPG";
+		String supportedFileTypes = "jpg JPG nef NEF orf ORF";
 
 		IOController ioc = new IOController(sourcePath, supportedFileTypes, targetPath, prefix);
 
@@ -34,7 +30,6 @@ public class Main {
 			List<File> allImageFiles = ioc.readDirectory();
 			for (File image : allImageFiles) {
 				ioc.organizePictureByDay(image);
-
 			}
 
 		} catch (FileNotFoundException e) {
@@ -44,6 +39,8 @@ public class Main {
 		} catch (IOException e) {
 			logger.error("Konnte Bilder nicht verarbeiten", e);
 		}
+		
+		logger.info("### SORTIERUNG ABGESCHLOSSEN");
 
 	}
 }

@@ -23,12 +23,12 @@ public class IOController {
 	private static final Logger logger = LoggerFactory.getLogger(IOController.class);
 
 	private String[] fileTypes;
-	private String sourcePath;
+	private File sourcePath;
 	private String supportedFileTypes;
-	private String targetPath;
+	private File targetPath;
 	private String prefix;
 
-	public IOController(String sourcePath, String supportedFileTypes, String targetPath, String prefix) {
+	public IOController(File sourcePath, String supportedFileTypes, File targetPath, String prefix) {
 		this.sourcePath = sourcePath;
 		this.supportedFileTypes = supportedFileTypes;
 		this.targetPath = targetPath;
@@ -37,7 +37,7 @@ public class IOController {
 	}
 
 	public List<File> readDirectory() throws FileNotFoundException {
-		File inputDirectory = new File(sourcePath);
+		File inputDirectory = sourcePath;
 
 		if (!inputDirectory.exists()) {
 			throw new FileNotFoundException();
@@ -49,17 +49,13 @@ public class IOController {
 	}
 
 	public void organizePictureByDay(File picFile) throws ImageProcessingException, IOException {
-		Metadata metadata = ImageMetadataReader.readMetadata(picFile);
-		ExifSubIFDDirectory directory = metadata.getFirstDirectoryOfType(ExifSubIFDDirectory.class);
-		Date date = directory.getDate(ExifSubIFDDirectory.TAG_DATETIME_ORIGINAL);
-		Calendar cal = new GregorianCalendar();
-		cal.setTime(date);
+		Calendar cal = DateUtils.getCaptureDate(picFile);
 
 		int year = cal.get(Calendar.YEAR);
 		String month = DateUtils.getMonthAsDecimalValue(cal.get(Calendar.MONTH));
 		int day = cal.get(Calendar.DAY_OF_MONTH);
 
-		File targetDirectory = new File(targetPath);
+		File targetDirectory = targetPath;
 		if (!targetDirectory.exists()) {
 			throw new FileNotFoundException();
 		}
@@ -73,19 +69,28 @@ public class IOController {
 		if (!monthFolder.exists()) {
 			monthFolder.mkdirs();
 		}
-		
-		File dayFolder = new File(monthFolder.getAbsolutePath()+File.separator+day);
-		if (!dayFolder.exists())
-		{
+
+		File dayFolder = new File(monthFolder.getAbsolutePath() + File.separator + day);
+		if (!dayFolder.exists()) {
 			dayFolder.mkdirs();
 		}
-		
-		String newFileName = prefix + "_" + year+month+day+picFile.getName();
-		File newFile = new File(dayFolder.getAbsolutePath()+File.separator+newFileName);
-		
-		logger.info("Kopiere Bild {} nach {}",picFile.getName(),newFile.getAbsolutePath());
-		FileUtils.copyFileToDirectory(picFile, dayFolder, true);
 
+		sanitizePrefix();
+		
+		String newFileName = prefix + year + month + day + "_" + picFile.getName();
+		File newFile = new File(dayFolder.getAbsolutePath() + File.separator + newFileName);
+
+		logger.info("Kopiere Bild {} nach {}", picFile.getName(), newFile.getAbsolutePath());
+		FileUtils.copyFile(picFile, newFile, true);
+
+	}
+
+	private void sanitizePrefix() {
+		if (!prefix.equals(""))
+		{
+			prefix = prefix + "_";
+		}
+		
 	}
 
 }
