@@ -33,6 +33,7 @@ public class IOController {
 		this.supportedFileTypes = supportedFileTypes;
 		this.targetPath = targetPath;
 		this.prefix = prefix;
+		sanitizePrefix();
 		fileTypes = supportedFileTypes.split(" ");
 	}
 
@@ -53,7 +54,7 @@ public class IOController {
 
 		int year = cal.get(Calendar.YEAR);
 		String month = DateUtils.getMonthAsDecimalValue(cal.get(Calendar.MONTH));
-		int day = cal.get(Calendar.DAY_OF_MONTH);
+		String day = DateUtils.getDayAsDecimalValue(cal.get(Calendar.DAY_OF_MONTH));
 
 		File targetDirectory = targetPath;
 		if (!targetDirectory.exists()) {
@@ -75,7 +76,6 @@ public class IOController {
 			dayFolder.mkdirs();
 		}
 
-		sanitizePrefix();
 		
 		String newFileName = prefix + year + month + day + "_" + picFile.getName();
 		File newFile = new File(dayFolder.getAbsolutePath() + File.separator + newFileName);
@@ -85,7 +85,7 @@ public class IOController {
 
 	}
 
-	private void sanitizePrefix() {
+	public void sanitizePrefix() {
 		if (!prefix.equals(""))
 		{
 			prefix = prefix + "_";

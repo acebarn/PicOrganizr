@@ -20,7 +20,17 @@ public class DateUtils {
 		}
 		month.append(calendarMonthCount + 1);
 		return month.toString();
-
+	}
+	
+	public static String getDayAsDecimalValue(int calendarDayCount)
+	{
+		StringBuilder day = new StringBuilder();
+		if(calendarDayCount < 10)
+		{
+			day.append("0");
+		}
+		day.append(calendarDayCount);
+		return day.toString();
 	}
 
 	/**
