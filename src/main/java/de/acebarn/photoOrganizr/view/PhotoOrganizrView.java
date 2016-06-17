@@ -11,29 +11,36 @@ import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.util.List;
 
+import javax.swing.DefaultComboBoxModel;
 import javax.swing.JButton;
 import javax.swing.JComboBox;
 import javax.swing.JFileChooser;
 import javax.swing.JFrame;
 import javax.swing.JLabel;
 import javax.swing.JOptionPane;
+import javax.swing.JProgressBar;
 import javax.swing.JTextField;
+
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import com.drew.imaging.ImageProcessingException;
 
 import de.acebarn.photoOrganizr.io.IOController;
-import javax.swing.JProgressBar;
-import javax.swing.DefaultComboBoxModel;
 
 public class PhotoOrganizrView {
 
 	private static final String SUPPORTED_FILE_TYPES = "jpg JPG nef NEF orf ORF";
+	private static final Logger logger = LoggerFactory.getLogger(PhotoOrganizrView.class);
 
 	private JFrame frmPhotoorganizr;
 	private JTextField tfPrefix;
 
 	private File sourcePath;
 	private File targetPath;
+	private String prefix;
+	private IOController controller;
+	private JProgressBar progressBar;
 
 	/**
 	 * Launch the application.
@@ -55,7 +62,25 @@ public class PhotoOrganizrView {
 	 * Create the application.
 	 */
 	public PhotoOrganizrView() {
+		controller = new IOController();
+		controller.setSupportedFileTypes(SUPPORTED_FILE_TYPES);
+		controller.readPreviousConfiguration();
+		setSourcePath(controller.getSourcePath());
+		setTargetPath(controller.getTargetPath());
+		setPrefix(controller.getPrefix());
 		initialize();
+	}
+
+	public void setSourcePath(File sourcePath) {
+		this.sourcePath = sourcePath;
+	}
+
+	public void setTargetPath(File targetPath) {
+		this.targetPath = targetPath;
+	}
+
+	public void setPrefix(String prefix) {
+		this.prefix = prefix;
 	}
 
 	/**
@@ -80,7 +105,7 @@ public class PhotoOrganizrView {
 		gbc_btnSource.gridy = 0;
 		frmPhotoorganizr.getContentPane().add(btnSource, gbc_btnSource);
 
-		final JLabel lblSourceDir = new JLabel("...");
+		final JLabel lblSourceDir = new JLabel(sourcePath == null ? "..." : sourcePath.getAbsolutePath());
 		GridBagConstraints gbc_lblSourceDir = new GridBagConstraints();
 		gbc_lblSourceDir.insets = new Insets(0, 0, 5, 0);
 		gbc_lblSourceDir.gridx = 1;
@@ -95,7 +120,7 @@ public class PhotoOrganizrView {
 		gbc_btnTarget.gridy = 1;
 		frmPhotoorganizr.getContentPane().add(btnTarget, gbc_btnTarget);
 
-		final JLabel lblTargetDir = new JLabel("...");
+		final JLabel lblTargetDir = new JLabel(targetPath == null ? "..." : targetPath.getAbsolutePath());
 		GridBagConstraints gbc_lblTargetDir = new GridBagConstraints();
 		gbc_lblTargetDir.insets = new Insets(0, 0, 5, 0);
 		gbc_lblTargetDir.gridx = 1;
@@ -110,7 +135,7 @@ public class PhotoOrganizrView {
 		gbc_lblPrefix.gridy = 2;
 		frmPhotoorganizr.getContentPane().add(lblPrefix, gbc_lblPrefix);
 
-		tfPrefix = new JTextField();
+		tfPrefix = new JTextField(prefix == null ? "" : prefix);
 		GridBagConstraints gbc_tfPrefix = new GridBagConstraints();
 		gbc_tfPrefix.insets = new Insets(0, 0, 5, 0);
 		gbc_tfPrefix.fill = GridBagConstraints.HORIZONTAL;
@@ -128,7 +153,7 @@ public class PhotoOrganizrView {
 		frmPhotoorganizr.getContentPane().add(lblModus, gbc_lblModus);
 
 		JComboBox comboBox = new JComboBox();
-		comboBox.setModel(new DefaultComboBoxModel(new String[] {"Jahr -> Monat -> Tag"}));
+		comboBox.setModel(new DefaultComboBoxModel(new String[] { "Jahr -> Monat -> Tag" }));
 		GridBagConstraints gbc_comboBox = new GridBagConstraints();
 		gbc_comboBox.insets = new Insets(0, 0, 5, 0);
 		gbc_comboBox.fill = GridBagConstraints.HORIZONTAL;
@@ -145,7 +170,9 @@ public class PhotoOrganizrView {
 		gbc_btnImport.gridy = 4;
 		frmPhotoorganizr.getContentPane().add(btnImport, gbc_btnImport);
 
-		final JProgressBar progressBar = new JProgressBar();
+		progressBar = new JProgressBar();
+		progressBar.setMinimum(0);
+		progressBar.setStringPainted(true);
 		GridBagConstraints gbc_progressBar = new GridBagConstraints();
 		gbc_progressBar.fill = GridBagConstraints.HORIZONTAL;
 		gbc_progressBar.gridwidth = 2;
@@ -189,38 +216,53 @@ public class PhotoOrganizrView {
 		});
 
 		btnImport.addActionListener(new ActionListener() {
-
+			
 			public void actionPerformed(ActionEvent e) {
 				if (sourcePath == null || targetPath == null) {
 					JOptionPane.showMessageDialog(null, "Bitte Quell- und Zielverzeichnis angeben!",
 							"Bitte Verzeichnisse angeben", JOptionPane.ERROR_MESSAGE);
+					return;
 				}
-
-				String prefix = tfPrefix.getText();
-
-				IOController ioc = new IOController(sourcePath, SUPPORTED_FILE_TYPES, targetPath, prefix);
-
-				List<File> allImageFiles;
-				try {
-					allImageFiles = ioc.readDirectory();
-
-					int progress = 0;
-
-					for (File image : allImageFiles) {
-						ioc.organizePictureByDay(image);
-						progress++;
-						progressBar.setValue(progress / allImageFiles.size());
-					}
-
-				} catch (FileNotFoundException e1) {
-				} catch (ImageProcessingException e1) {
-					e1.printStackTrace();
-				} catch (IOException e1) {
-					e1.printStackTrace();
-				}
-
+				
+				Thread t = new Thread(new ImageProcessor());
+				t.start();
 			}
 		});
+	}
+
+	private class ImageProcessor implements Runnable {
+
+		public void run() {
+			
+			String prefix = tfPrefix.getText();
+
+			controller.setSourcePath(sourcePath);
+			controller.setTargetPath(targetPath);
+			controller.setPrefix(prefix);
+			controller.writePreviousSourcePath();
+
+			List<File> allImageFiles;
+			try {
+				allImageFiles = controller.readDirectory();
+
+				int progress = 0;
+				progressBar.setValue(progressBar.getMinimum());
+				progressBar.setMaximum(allImageFiles.size());
+
+				for (File image : allImageFiles) {
+					controller.organizePictureByDay(image);
+					progress++;
+					progressBar.setValue(progress);
+
+				}
+
+			} catch (FileNotFoundException e1) {
+			} catch (ImageProcessingException e1) {
+				e1.printStackTrace();
+			} catch (IOException e1) {
+				e1.printStackTrace();
+			}
+		}
 	}
 
 }

@@ -1,22 +1,23 @@
 package de.acebarn.photoOrganizr.io;
 
 import java.io.File;
+import java.io.FileInputStream;
 import java.io.FileNotFoundException;
+import java.io.FileOutputStream;
 import java.io.IOException;
+import java.io.ObjectInputStream;
+import java.io.ObjectOutputStream;
 import java.util.Calendar;
-import java.util.Date;
-import java.util.GregorianCalendar;
+import java.util.HashMap;
 import java.util.LinkedList;
 import java.util.List;
+import java.util.Map;
 
 import org.apache.commons.io.FileUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import com.drew.imaging.ImageMetadataReader;
 import com.drew.imaging.ImageProcessingException;
-import com.drew.metadata.Metadata;
-import com.drew.metadata.exif.ExifSubIFDDirectory;
 
 public class IOController {
 
@@ -35,6 +36,11 @@ public class IOController {
 		this.prefix = prefix;
 		sanitizePrefix();
 		fileTypes = supportedFileTypes.split(" ");
+	}
+	
+	public IOController()
+	{
+		
 	}
 
 	public List<File> readDirectory() throws FileNotFoundException {
@@ -92,5 +98,81 @@ public class IOController {
 		}
 		
 	}
+	
+	public File getSourcePath() {
+		return sourcePath;
+	}
+	
+	public void setSourcePath(File sourcePath) {
+		this.sourcePath = sourcePath;
+	}
+	
+	public File getTargetPath() {
+		return targetPath;
+	}
+	
+	public void setTargetPath(File targetPath) {
+		this.targetPath = targetPath;
+	}
+	
+	public void readPreviousConfiguration()
+	{
+		Map<String, Object> storeMap;
+		try {
+			FileInputStream fio = new FileInputStream("previous.conf");
+			ObjectInputStream ois = new ObjectInputStream(fio);
+			storeMap = (Map<String, Object>) ois.readObject();
+			
+			sourcePath = (File) storeMap.get("source");
+			targetPath = (File) storeMap.get("target");
+			prefix = (String) storeMap.get("prefix");
+			
+		} catch (FileNotFoundException e) {
+			logger.info("No previous configuration has been read");
+		} catch (ClassNotFoundException e) {
+		} catch (IOException e) {
+		}
+		
+		
+	}
+	
+	public void writePreviousSourcePath()
+	{
+		Map<String, Object> storeMap = new HashMap<String, Object>();
+		if (sourcePath != null && targetPath != null)
+		{
+			storeMap.put("source", sourcePath);
+			storeMap.put("target", targetPath);
+			storeMap.put("prefix", prefix);
+			logger.info("Writing to config...\n Source: {}\nTarget: {}\nPrefix: {}",sourcePath.getAbsolutePath(),targetPath.getAbsolutePath(),prefix);
+			try {
+				FileOutputStream fout = new FileOutputStream(new File("previous.conf"));
+				ObjectOutputStream oout = new ObjectOutputStream(fout);
+				oout.writeObject(storeMap);
+				
+			} catch (FileNotFoundException e) {
+				e.printStackTrace();
+			} catch (IOException e) {
+				e.printStackTrace();
+			}
+			
+		}
+	}
+	
+	public void setSupportedFileTypes(String supportedFileTypes) {
+		this.supportedFileTypes = supportedFileTypes;
+	}
+	
+	public String getSupportedFileTypes() {
+		return supportedFileTypes;
+	}
 
+	
+	public void setPrefix(String prefix) {
+		this.prefix = prefix;
+	}
+	
+	public String getPrefix() {
+		return prefix;
+	}
 }
