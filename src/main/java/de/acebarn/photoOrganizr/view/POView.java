@@ -21,7 +21,6 @@ public class POView
     private static final String SUPPORTED_FILE_TYPES = "jpg JPG nef NEF orf ORF";
     private static final Logger logger = LoggerFactory.getLogger(POView.class);
 
-
     private JButton btnSource;
     private JLabel lblSourceDir;
     private JButton btnTarget;
@@ -34,12 +33,15 @@ public class POView
     private JProgressBar progressBar;
     private JPanel pnlMain;
     private JButton btnAbort;
+    private JLabel lblVerbose;
 
     private File sourcePath;
     private File targetPath;
     private String prefix;
     private IOController controller;
     private Thread worker;
+
+    private boolean stopworking;
 
     public static void main(String[] args)
     {
@@ -50,7 +52,7 @@ public class POView
         frame.setVisible(true);
         try
         {
-            UIManager.setLookAndFeel(UIManager.getSystemLookAndFeelClassName());
+            UIManager.setLookAndFeel(UIManager.getCrossPlatformLookAndFeelClassName());
         } catch (ClassNotFoundException e)
         {
             e.printStackTrace();
@@ -82,35 +84,50 @@ public class POView
         setTargetPath(controller.getTargetPath());
         setPrefix(controller.getPrefix());
 
-        if (sourcePath!=null | targetPath != null | prefix != null)
+        modusComboBox.addItem(Modes.YEAR_MONTH_DAY);
+        modusComboBox.addItem(Modes.YEAR_MONTH);
+        modusComboBox.setSelectedIndex(0);
+
+        if (sourcePath != null | targetPath != null | prefix != null)
         {
             lblSourceDir.setText(sourcePath.getAbsolutePath());
             lblTargetDir.setText(targetPath.getAbsolutePath());
             lblPrefix.setText(prefix);
         }
 
-        btnAbort.addActionListener(new ActionListener()
-        {
-            public void actionPerformed(ActionEvent actionEvent)
-            {
-                if (worker.isAlive())
-                {
-                    worker.stop();
-                }
-            }
-        });
+        btnAbort.addActionListener(new BtnAbortActionListener());
     }
 
-    public void setSourcePath(File sourcePath) {
+    public void setStopworking(boolean stopworking)
+    {
+        this.stopworking = stopworking;
+    }
+
+    public void setSourcePath(File sourcePath)
+    {
         this.sourcePath = sourcePath;
     }
 
-    public void setTargetPath(File targetPath) {
+    public void setTargetPath(File targetPath)
+    {
         this.targetPath = targetPath;
     }
 
-    public void setPrefix(String prefix) {
+    public void setPrefix(String prefix)
+    {
         this.prefix = prefix;
+    }
+
+    private class BtnAbortActionListener implements ActionListener
+    {
+
+        public void actionPerformed(ActionEvent actionEvent)
+        {
+            logger.info("Breche ab...");
+            btnAbort.setEnabled(false);
+            setStopworking(true);
+
+        }
     }
 
     private class BtnSourceActionListener implements ActionListener
@@ -124,7 +141,8 @@ public class POView
             fileChooser.setAcceptAllFileFilterUsed(false);
 
             int returnVal = fileChooser.showOpenDialog(btnSource);
-            if (returnVal == JFileChooser.APPROVE_OPTION) {
+            if (returnVal == JFileChooser.APPROVE_OPTION)
+            {
                 lblSourceDir.setText(fileChooser.getSelectedFile().getAbsolutePath());
                 sourcePath = fileChooser.getSelectedFile();
             }
@@ -142,7 +160,8 @@ public class POView
             fileChooser.setAcceptAllFileFilterUsed(false);
 
             int returnVal = fileChooser.showOpenDialog(btnSource);
-            if (returnVal == JFileChooser.APPROVE_OPTION) {
+            if (returnVal == JFileChooser.APPROVE_OPTION)
+            {
                 lblTargetDir.setText(fileChooser.getSelectedFile().getAbsolutePath());
                 targetPath = fileChooser.getSelectedFile();
             }
@@ -154,7 +173,8 @@ public class POView
 
         public void actionPerformed(ActionEvent actionEvent)
         {
-            if (sourcePath == null || targetPath == null) {
+            if (sourcePath == null || targetPath == null)
+            {
                 JOptionPane.showMessageDialog(null, "Bitte Quell- und Zielverzeichnis angeben!",
                         "Bitte Verzeichnisse angeben", JOptionPane.ERROR_MESSAGE);
                 return;
@@ -165,10 +185,12 @@ public class POView
         }
     }
 
-    private class ImageProcessor implements Runnable {
+    private class ImageProcessor implements Runnable
+    {
 
-        public void run() {
-
+        public void run()
+        {
+            setStopworking(false);
             String prefix = tfPrefix.getText();
 
             controller.setSourcePath(sourcePath);
@@ -177,25 +199,55 @@ public class POView
             controller.writePreviousSourcePath();
 
             List<File> allImageFiles;
-            try {
+            try
+            {
                 allImageFiles = controller.readDirectory();
 
                 int progress = 0;
                 progressBar.setValue(progressBar.getMinimum());
                 progressBar.setMaximum(allImageFiles.size());
 
-                for (File image : allImageFiles) {
-                    controller.organizePictureByDay(image);
+                Modes selectedMode = (Modes) modusComboBox.getSelectedItem();
+
+                for (File image : allImageFiles)
+                {
+
+                    if (stopworking)
+                    {
+                        logger.info("Import terminated");
+                        progressBar.setValue(0);
+                        btnAbort.setEnabled(true);
+                        break;
+                    }
+
+                    lblVerbose.setText("Kopiere Bild: "+image.getAbsolutePath());
+
+                    if(selectedMode == Modes.YEAR_MONTH_DAY)
+                    {
+                        controller.organizePictureByDay(image);
+                    }
+                    else if (selectedMode == Modes.YEAR_MONTH)
+                    {
+                        controller.organizePictureByMonth(image);
+                    }
                     progress++;
                     progressBar.setValue(progress);
 
                 }
+                lblVerbose.setText("Importvorgang abgeschlossen");
 
-            } catch (FileNotFoundException e1) {
-            } catch (ImageProcessingException e1) {
+            } catch (FileNotFoundException e1)
+            {
                 e1.printStackTrace();
-            } catch (IOException e1) {
+                lblVerbose.setText("Fehler: Datei nicht gefunden");
+            } catch (ImageProcessingException e1)
+            {
                 e1.printStackTrace();
+                lblVerbose.setText("Fehler: Bild konnte nicht kopiert werden");
+            } catch (IOException e1)
+            {
+                e1.printStackTrace();
+                lblVerbose.setText("Fehler: IO-Fehler");
             }
         }
     }
